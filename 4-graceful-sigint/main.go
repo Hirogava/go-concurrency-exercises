@@ -13,10 +13,38 @@
 
 package main
 
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+)
+
 func main() {
-	// Create a process
 	proc := MockProcess{}
 
-	// Run the process (blocking)
-	proc.Run()
+	go func() {
+		proc.Run() // Запуск процесса (блокирующий)
+	}()
+
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
+
+
+	select {
+	case <-sigint:
+		fmt.Println("Попытка изящной остановки...")
+		go proc.Stop()
+
+		select {
+
+		case <-time.After(3 * time.Second):
+			fmt.Println("Процесс не остановился. Принудительное завершение.")
+			os.Exit(1)
+		case <-sigint:
+			fmt.Println("Принудительное завершение.")
+			os.Exit(1)
+		}
+	}
 }
